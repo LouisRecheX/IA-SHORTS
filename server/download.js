@@ -1,30 +1,45 @@
-import ytdl from "ytdl-core";
+import { exec } from "child_process";
 import fs from "fs";
+import path from "path";
 
-export const download = (videoID) => new Promise((resolve, reject) => {
-  const videoURL = "https://www.youtube.com/shorts/" + videoID;
-  console.log("Realizando o download do video", videoID);
+export const download = (videoID) =>
+  new Promise((resolve, reject) => {
+    const videoURL = "https://www.youtube.com/shorts/" + videoID;
+    const outputDir = "./tmp/";
+    const outputPath = path.join(outputDir, "video.mp4");
+    const ffmpegLocation =
+      "C:/Users/Louis_Reche-PC/Documents/ITEM/ffmpeg-2025-02-10-git-a28dc06869-full_build/bin/ffmpeg.exe";
 
-  ytdl(videoURL, { quality: "lowestaudio", filter: "audioonly" })
-    .on("info", (info) => {
-      const seconds = info.formats[0].approxDurationMs / 1000
+    // Certifique-se de que o diretório de saída existe
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir);
+    }
 
-      if (seconds > 60) {
-        throw new Error("A Duração desse video é maior do que 60 segundos.");
+    const command = `yt-dlp ${videoURL} -o ${outputPath} --ffmpeg-location ${ffmpegLocation} --extract-audio --audio-format wav`;
+    console.log("Executando o comando:", command);
+    exec(command, (error, stdout, stderr) => {
+      console.log("Saída do comando:", stdout);
+      console.log("Erro do comando:", stderr);
+      if (error) {
+        console.log(
+          "Não foi possível fazer o download do video. Detalhes do erro:",
+          error
+        );
+        reject(error);
+      } else {
+        console.log("Download do video finalizado.");
+
+        // Verificar se o arquivo de áudio foi criado
+        const audioPath = path.join(outputDir, "video.mp4.wav");
+        const absoluteAudioPath = path.resolve(audioPath);
+        console.log("Caminho absoluto do arquivo de áudio:", absoluteAudioPath);
+        if (fs.existsSync(audioPath)) {
+          console.log("Áudio extraído com sucesso.");
+          resolve(audioPath);
+        } else {
+          console.log("Erro: O arquivo de áudio não foi encontrado.");
+          reject(new Error("O arquivo de áudio não foi encontrado."));
+        }
       }
-    })
-    .on("end", () => {
-      console.log("Download do video finalizado.")
-      resolve()
-    })
-
-    .on("error", (error) => {
-      console.log(
-        "Não foi possível fazer o download do video. Detalhes do erro",
-        error
-      )
-      reject(error)
-    })
-    .pipe(fs.createrWriteStream("./tmp/audio.mp4"))
-})
-
+    });
+  });
